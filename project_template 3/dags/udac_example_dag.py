@@ -17,7 +17,7 @@ default_args = {
     'email_on_retry': False
 }
 
-dag = DAG('udac_example_dag',
+dag = DAG('udacity_dend_proj_5',
           default_args=default_args,
           description='Load and transform data in Redshift with Airflow',
           schedule_interval='0 * * * *'
@@ -25,14 +25,28 @@ dag = DAG('udac_example_dag',
 
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
 
+#Load staging events data to redshift
 stage_events_to_redshift = StageToRedshiftOperator(
     task_id='Stage_events',
-    dag=dag
+    provide_context=False,
+    dag=dag,
+    table = "staging_events",
+    s3_path = "s3://udacity-dend/log_data",
+    redshift_conn_id="redshift",
+    aws_credentials_id="aws_credentials",
+    region="us-west-2"
 )
 
+#Load staging songs data to redshift
 stage_songs_to_redshift = StageToRedshiftOperator(
     task_id='Stage_songs',
-    dag=dag
+    provide_context=False,
+    dag=dag,
+    table = "staging_songs",
+    s3_path = "s3://udacity-dend/song_data",
+    redshift_conn_id="redshift",
+    aws_credentials_id="aws_credentials",
+    region="us-west-2"
 )
 
 load_songplays_table = LoadFactOperator(
@@ -66,3 +80,7 @@ run_quality_checks = DataQualityOperator(
 )
 
 end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)
+
+# Task dependencies
+start_operator >> stage_events_to_redshift >> load_songplays_table
+start_operator >> stage_songs_to_redshift >> load_songplays_table
